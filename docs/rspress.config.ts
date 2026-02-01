@@ -5,8 +5,18 @@ export default defineConfig({
   root: path.join(__dirname, 'docs'),
   lang: 'ko',
   locales: [
-    { lang: 'ko', label: '한국어', title: 'GIF → MP4', description: 'gif(Rust WASM) → video(WebCodecs) → mp4(TS) 문서' },
-    { lang: 'en', label: 'English', title: 'GIF → MP4', description: 'gif(Rust WASM) → video(WebCodecs) → mp4(TS) docs' },
+    {
+      lang: 'ko',
+      label: '한국어',
+      title: 'GIF → MP4',
+      description: 'gif(Rust WASM) → video(WebCodecs) → mp4(TS) 문서',
+    },
+    {
+      lang: 'en',
+      label: 'English',
+      title: 'GIF → MP4',
+      description: 'gif(Rust WASM) → video(WebCodecs) → mp4(TS) docs',
+    },
   ],
   icon: '/rspress-icon.png',
   logo: {

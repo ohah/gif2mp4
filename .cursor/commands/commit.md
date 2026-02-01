@@ -2,6 +2,25 @@
 
 아래 규칙에 맞춰 커밋 메시지를 한글로 작성해 주세요.
 
+## 커밋 전 체크 (액션과 동일)
+
+커밋하기 **전에** 아래를 실행해 모두 통과한 뒤 커밋한다.
+
+1. **포맷**
+   - `bun run format:check` — TS/JS·MD 등 포맷 검사 (oxfmt)
+   - 실패 시 `bun run format` 으로 수정 후 다시 체크
+   - Rust 수정 시: `bun run format:rust:check` (실패 시 `bun run format:rust`)
+
+2. **린트**
+   - `bun run lint` — TS/JS 린트 (oxlint)
+   - Rust 수정 시: `cargo clippy --all-targets --all-features -- -D warnings`
+
+3. **빌드**
+   - `bun run build` — WASM·워크스페이스 빌드
+   - 문서만 수정한 경우: `bun run docs:build` 로 문서 빌드 확인
+
+위 체크 중 해당하는 것만 돌려도 되지만, 변경 범위가 불확실하면 전부 실행하는 것을 권장한다.
+
 ## 규칙
 
 - **언어**: 한글로 작성한다.
