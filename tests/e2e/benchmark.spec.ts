@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5174';
+const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4174';
 
 test.setTimeout(120000);
 
@@ -20,4 +20,8 @@ test('벤치마크 실행 후 결과 출력', async ({ page }) => {
   console.log('\n=== 벤치마크 결과 ===\n');
   console.log(table ?? '');
   console.log(summary ?? '');
+
+  // 결과 영역에 예상 텍스트가 포함되는지 검증
+  const resultText = (table ?? '') + (summary ?? '');
+  expect(resultText).toMatch(/Rust WASM|gifuct-js|총 시간|decode|encode/i);
 });

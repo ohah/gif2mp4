@@ -2,7 +2,7 @@
   "name": "gif2mp4",
   "version": "0.1.0",
   "private": true,
-  "description": "GIF to MP4 — gif(Rust) → video(WebCodecs) → mp4(Rust)",
+  "description": "GIF to MP4 — gif(Rust) → video(WebCodecs) → mp4(mp4-muxer, TS)",
   "workspaces": [
     "packages/*",
     "apps/*",
