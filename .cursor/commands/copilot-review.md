@@ -1,75 +1,56 @@
-# Apply GitHub Copilot review feedback
+# GitHub Copilot 리뷰 반영
 
-Review Copilot feedback on a branch/PR and apply the suggested changes.
+브랜치/PR의 Copilot 리뷰를 확인하고, 제안된 변경을 코드에 반영한다.
 
-## Input
+## 입력
 
-- **Branch/PR link** (optional): User may provide the link (e.g. `https://github.com/owner/repo/pull/123`). If not provided, use GitHub CLI to find the PR for the **current branch**:
+- **브랜치/PR 링크** (선택): 사용자가 링크를 줄 수 있음 (예: `https://github.com/owner/repo/pull/123`). 없으면 GitHub CLI로 **현재 브랜치**의 PR을 찾는다:
 
   ```bash
-  gh pr view --json number,url  # from repo root; fails if no PR for current branch
-  # or
+  gh pr view --json number,url  # 저장소 루트; 현재 브랜치에 PR 없으면 실패
+  # 또는
   gh pr list --head $(git branch --show-current) --state open --json number,url
   ```
 
-  - If exactly one PR exists for the current branch, use that PR. If none or multiple, ask the user for the PR link (or pasted review text).
+  - 현재 브랜치에 PR이 정확히 하나면 그 PR 사용. 없거나 여러 개면 PR 링크(또는 붙여넣은 리뷰 텍스트)를 요청.
 
-- **Review text**: User may paste Copilot review text directly; use that as the source of feedback.
+- **리뷰 텍스트**: 사용자가 Copilot 리뷰를 그대로 붙여넣을 수 있음; 그 내용을 피드백 소스로 사용.
 
-## Steps
+## 단계
 
-1. **Get the review**:
-   - If the user pasted a PR link: open or fetch that PR and find the GitHub Copilot review (summary and/or file comments).
-   - If the user did **not** provide a link: run `gh pr view` from the repo root (or
-     `gh pr list --head $(git branch --show-current) --state open`). If one PR is
-     found for the current branch, use that PR; otherwise say "No PR for the
-     current branch" or "Multiple PRs found" and ask for the PR link.
-   - If the user pasted the review text directly: use that as the source of feedback.
-   - With the PR: use `gh pr view <number>` or the web URL to check the PR conversation for Copilot review.
+1. **리뷰 가져오기**
+   - PR 링크를 줬을 때: 해당 PR을 열거나 가져와 GitHub Copilot 리뷰(요약·파일 코멘트)를 찾는다.
+   - 링크를 주지 않았을 때: 저장소 루트에서 `gh pr view`(또는 `gh pr list --head $(git branch --show-current) --state open`) 실행. 현재 브랜치에 PR이 하나면 그 PR 사용; 없으면 "현재 브랜치에 PR이 없습니다", 여러 개면 "PR이 여러 개입니다"라고 하고 PR 링크를 요청.
+   - 리뷰 텍스트를 직접 붙여넣었을 때: 그 텍스트를 피드백 소스로 사용.
+   - PR이 있을 때: `gh pr view <번호>` 또는 웹 URL로 PR 대화에서 Copilot 리뷰 확인.
 
-2. **Read the feedback**:
-   - Summarize what Copilot suggested (e.g. style, security, logic, tests).
-   - Identify which files and lines each comment refers to.
+2. **피드백 읽기**
+   - Copilot이 뭘 제안했는지 요약 (스타일, 보안, 로직, 테스트 등).
+   - 각 코멘트가 어떤 파일·행을 가리키는지 파악.
 
-3. **Apply the changes**:
-   - Edit the codebase to address each suggestion where it makes sense.
-   - Prefer accepting suggestions that improve correctness, security, or maintainability; skip or adapt ones that conflict with project rules or intent.
-   - Run format/lint after edits (`bun run format`, `bun run lint` for TS/JS; `cargo fmt`, `cargo clippy` for Rust).
+3. **변경 적용**
+   - 제안을 코드에 반영. 맞는 것만 적용한다.
+   - 정확성·보안·유지보수에 도움이 되는 제안은 받아들이고, 프로젝트 규칙·의도와 어긋나는 건 건너뛰거나 수정해서 적용.
+   - 수정 후 포맷/린트 실행 (`bun run format`, `bun run lint` for TS/JS; `cargo fmt`, `cargo clippy` for Rust).
 
-4. **Reply to the user**:
-   - List what was changed and what was skipped (and why, if relevant).
-   - Ask for the PR link (or pasted review text) only when no PR was found for the
-     current branch via `gh pr view` / `gh pr list`, or when the user needs to
-     specify a different PR.
+4. **사용자에게 답하기**
+   - 무엇을 바꿨고 무엇을 건너뛰었는지(이유 있으면) 나열.
+   - PR 링크(또는 붙여넣은 리뷰 텍스트)는 `gh pr view` / `gh pr list`로 현재 브랜치 PR을 찾지 못했을 때, 또는 다른 PR을 지정해야 할 때만 요청.
 
-5. **Update PR content** (after applying Copilot review):
-   - Add to `branch-summary.md` (or the PR description source) a short section
-     describing what Copilot suggested and what was applied (e.g. "Copilot review:
-     applied AGENTS.MD casing, frontmatter name/model, Redux export alignment").
-   - If the branch is already pushed and a PR exists, suggest or run
-     `gh pr edit --body-file branch-summary.md` so the PR description reflects the
-     Copilot review work. Do not commit `branch-summary.md`; it is used only for the
-     PR body.
+5. **PR 내용 갱신** (Copilot 리뷰 반영 후)
+   - `branch-summary.md`(또는 PR 설명 소스)에 Copilot이 제안한 것과 적용한 것을 짧게 적는 섹션 추가 (예: "Copilot 리뷰: AGENTS.MD 대소문자, frontmatter name/model, Redux export 정렬 반영").
+   - 브랜치가 이미 푸시되어 PR이 있으면 `gh pr edit --body-file branch-summary.md`로 PR 설명을 갱신하라고 안내하거나 실행. `branch-summary.md`는 커밋하지 않음; PR 본문용으로만 사용.
 
-6. **Resolve review threads** (after applying feedback):
-   - For each Copilot comment thread that was addressed, mark the conversation as **resolved** on GitHub so the PR does not show unresolved threads.
-   - **Web**: PR → "Files changed" → open each comment → "Resolve conversation".
-   - **CLI**: `gh` has no built-in resolve command; use GraphQL:
+6. **리뷰 스레드 해결** (피드백 반영 후)
+   - 반영한 Copilot 코멘트 스레드마다 GitHub에서 대화를 **해결됨**으로 표시해 미해결 스레드가 안 보이게 한다.
+   - **웹**: PR → "파일 변경" → 각 코멘트 열기 → "대화 해결".
+   - **CLI**: `gh`에는 해결 전용 명령이 없음; GraphQL 사용:
      `gh api graphql -f query='mutation { resolveReviewThread(input: { threadId: "PRRT_xxx" }) {
-thread { isResolved } } }'` with the thread ID from the PR (e.g. from
-     `pull-requests/pr-N/comments.json` or the review comment payload). Run once per
-     unresolved thread.
+thread { isResolved } } }'` 에서 PR의 스레드 ID(예: `pull-requests/pr-N/comments.json` 또는 리뷰 코멘트 페이로드) 사용. 미해결 스레드마다 한 번씩 실행.
 
-## Notes
+## 참고
 
-- **PR source**: If the user did not provide a link, first run `gh pr view` (or
-  `gh pr list --head $(git branch --show-current)`) to see if the current branch has
-  a PR; use it when exactly one is found. Ask for the PR link or pasted review text
-  only when no PR is found or the user must specify a different PR.
-- Do not commit automatically; let the user review the diff and run `/commit` if
-  they want to commit.
-- After applying Copilot review, always update the PR content (branch-summary.md) and
-  optionally refresh the PR body with `gh pr edit --body-file branch-summary.md`.
-- After applying feedback, resolve the addressed review threads on GitHub (web
-  "Resolve conversation" or `gh api graphql` with `resolveReviewThread` and the
-  thread ID).
+- **PR 소스**: 링크를 주지 않았으면 먼저 `gh pr view`(또는 `gh pr list --head $(git branch --show-current)`)로 현재 브랜치 PR 확인; 하나만 있으면 그걸 사용. PR이 없거나 다른 PR을 써야 할 때만 PR 링크 또는 붙여넣은 리뷰 텍스트 요청.
+- 자동 커밋하지 않음; 사용자가 diff 확인 후 `/commit`으로 커밋.
+- Copilot 리뷰 반영 후에는 항상 PR 내용(branch-summary.md)을 갱신하고, 필요하면 `gh pr edit --body-file branch-summary.md`로 PR 본문 갱신.
+- 피드백 반영 후에는 GitHub에서 해당 리뷰 스레드를 해결 (웹 "대화 해결" 또는 `gh api graphql`의 `resolveReviewThread` + 스레드 ID).
