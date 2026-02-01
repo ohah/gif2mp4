@@ -53,5 +53,3 @@ cd docs && bun run dev
 ```bash
 bun run docs:dev
 ```
-
-(루트 `package.json`에 `docs:dev` 스크립트를 추가한 경우)
