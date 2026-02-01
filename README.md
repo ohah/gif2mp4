@@ -1,6 +1,6 @@
 # GIF → MP4
 
-Bun 모노레포 + Rust 워크스페이스. 파이프라인: **gif(Rust WASM) → video(WebCodecs) → mp4(Rust WASM)**.
+Bun 모노레포 + Rust 워크스페이스. 파이프라인: **gif(Rust WASM) → video(WebCodecs) → mp4(mp4-muxer, TS)**.
 
 ## 구조
 
@@ -75,11 +75,10 @@ bun run dev
 ## 사용 (코드)
 
 ```ts
-import { initDecode, initMux, gifToMp4 } from '@gif2mp4/core';
+import { initDecode, gifToMp4 } from '@gif2mp4/core';
 
-// WASM 초기화 (decode, mux 모듈 로드 후)
+// WASM 디코더 초기화 후
 initDecode(decodeModule);
-initMux(muxModule);
 
 const mp4Bytes = await gifToMp4(gifBuffer);
 ```

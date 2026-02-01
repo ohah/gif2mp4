@@ -57,7 +57,7 @@ export interface DecodedGif {
 
 /**
  * Decode GIF to frames (RGBA). Requires initDecode() to have been called.
- * Use with initMux() + gifToMp4() or other muxers for browser-playable MP4.
+ * Use with gifToMp4() or encodeAndMuxToMp4() for browser-playable MP4.
  */
 export function decodeGifToFrames(gifBuffer: ArrayBuffer | Uint8Array): DecodedGif {
   const decodeMod = getDecodeModule();
@@ -110,7 +110,7 @@ function parseDecodeResult(result: unknown): {
     buffer = plainBuf;
   } else if (Array.isArray(plainBuf)) {
     buffer = new Uint8Array(plainBuf);
-  } else if (plainBuf != null && typeof (plainBuf as ArrayBufferView).byteLength === 'number') {
+  } else if (typeof (plainBuf as ArrayBufferView).byteLength === 'number') {
     const view = plainBuf as ArrayBufferView;
     buffer = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
   } else {

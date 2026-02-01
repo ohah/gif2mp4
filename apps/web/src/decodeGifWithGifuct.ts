@@ -6,7 +6,13 @@ import { parseGIF, decompressFrames } from 'gifuct-js';
 import type { DecodedGif, GifFrame } from '@gif2mp4/core';
 
 export function decodeGifWithGifuct(gifBuffer: ArrayBuffer | Uint8Array): DecodedGif {
-  const buf = gifBuffer instanceof ArrayBuffer ? gifBuffer : gifBuffer.buffer;
+  const buf: ArrayBuffer =
+    gifBuffer instanceof ArrayBuffer
+      ? gifBuffer
+      : (gifBuffer.buffer.slice(
+          gifBuffer.byteOffset,
+          gifBuffer.byteOffset + gifBuffer.byteLength,
+        ) as ArrayBuffer);
   const gif = parseGIF(buf);
   const rawFrames = decompressFrames(gif, true);
   const width = gif.lsd.width;

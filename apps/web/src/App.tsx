@@ -63,7 +63,7 @@ export default function App() {
       try {
         const buf = new Uint8Array(await file.arrayBuffer());
         const mp4 = await gifToMp4(buf);
-        setMp4Blob(new Blob([new Uint8Array(mp4)], { type: 'video/mp4' }));
+        setMp4Blob(new Blob([mp4 as BlobPart], { type: 'video/mp4' }));
         setFrameCount(null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -87,7 +87,7 @@ export default function App() {
       if (!res.ok) throw new Error(`sample.gif fetch: ${res.status}`);
       const buf = new Uint8Array(await res.arrayBuffer());
       const mp4 = await gifToMp4(buf);
-      setMp4Blob(new Blob([new Uint8Array(mp4)], { type: 'video/mp4' }));
+      setMp4Blob(new Blob([mp4 as BlobPart], { type: 'video/mp4' }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
