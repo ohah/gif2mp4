@@ -11,7 +11,7 @@ export function decodeGifWithGifuct(gifBuffer: ArrayBuffer | Uint8Array): Decode
       ? gifBuffer
       : (gifBuffer.buffer.slice(
           gifBuffer.byteOffset,
-          gifBuffer.byteOffset + gifBuffer.byteLength,
+          gifBuffer.byteOffset + gifBuffer.byteLength
         ) as ArrayBuffer);
   const gif = parseGIF(buf);
   const rawFrames = decompressFrames(gif, true);
