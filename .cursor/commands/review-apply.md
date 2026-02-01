@@ -1,67 +1,67 @@
-# Apply PR review suggestions locally (review-apply)
+# PR 리뷰 제안 로컬 적용 (review-apply)
 
-Fetch **review comments that contain suggestion blocks** from the PR for the current branch and apply those suggestions to the local files. This replicates GitHub's "Commit suggestion" locally.
+현재 브랜치의 PR에서 **제안(suggestion) 블록이 있는 리뷰 코멘트**만 가져와 로컬 파일에 적용한다. GitHub의 "제안 적용"을 로컬에서 하는 것과 같다.
 
-## When to use
+## 사용 시점
 
-- Run this command from Cursor (e.g. command palette → "review-apply" or `/review-apply`).
+- Cursor에서 실행 (예: 명령 팔레트 → "review-apply" 또는 `/review-apply`).
 
-## Order of operations
+## 진행 순서
 
-1. **Find the PR for the current branch**
-   - If there is no PR, say "There is no PR for the current branch" and stop.
+1. **현재 브랜치의 PR 찾기**
+   - PR이 없으면 "현재 브랜치에 해당하는 PR이 없습니다"라고 하고 종료.
 
    ```bash
    gh pr view --json number,headRefOid
    ```
 
-   - If that fails: `gh pr list --head $(git branch --show-current)` to confirm.
+   - 실패 시: `gh pr list --head $(git branch --show-current)`로 확인.
 
-2. **Fetch review comments**
+2. **리뷰 코멘트 가져오기**
 
    ```bash
-   gh api repos/ohah/gif2mp4/pulls/<PR-number>/comments
+   gh api repos/ohah/gif2mp4/pulls/<PR번호>/comments
    ```
 
-   - Use `path`, `line`, `start_line`, and `body`.
+   - `path`, `line`, `start_line`, `body` 사용.
 
-3. **Keep only comments that have a suggestion block**
-   - Include only comments whose `body` contains ` ```suggestion `.
-   - Use a regex like `/```suggestion\s*([\s\S]*?)```/` to extract the **suggested code** from the block.
-   - For each such comment, record: `path`, `line`, `start_line` (or treat as single-line if missing), and `suggestedCode` (extracted text; preserve line endings).
+3. **제안 블록이 있는 코멘트만 남기기**
+   - `body`에 ` ```suggestion ` 이 포함된 코멘트만 사용.
+   - `/```suggestion\s*([\s\S]*?)```/` 같은 정규식으로 **제안 코드** 추출.
+   - 각 코멘트마다: `path`, `line`, `start_line`(없으면 한 줄로 간주), `suggestedCode`(추출한 텍스트, 줄바꿈 유지) 기록.
 
-4. **When in doubt, ask the user**
-   - **Do not apply** automatically; instead briefly describe the situation and ask: "Apply all? / Only some? / Skip?"
-   - Do this when:
-     - There are **two or more** suggestions for the **same file and same line** (or overlapping line range).
-     - The **current content** at that line (or range) has changed a lot since the review, so pasting the suggestion might conflict or look wrong.
-     - The **file** in `path` does not exist locally (e.g. moved or deleted).
-     - The suggestion spans **multiple lines** but `start_line` is missing or the range is unclear.
-   - Once the user says "apply all", "apply only this one", or "skip", proceed accordingly.
+4. **애매하면 사용자에게 묻기**
+   - **자동 적용하지 말고** 상황을 짧게 설명한 뒤 "전부 적용? / 일부만? / 건너뛸까요?"라고 묻는다.
+   - 다음일 때 이렇게 한다:
+     - **같은 파일·같은 행**(또는 겹치는 범위)에 제안이 **두 개 이상**일 때.
+     - 리뷰 이후 그 행(또는 범위) **내용이 많이 바뀌어** 제안을 그대로 붙이면 충돌하거나 어색할 때.
+     - `path`의 **파일**이 로컬에 없을 때 (이동·삭제 등).
+     - 제안이 **여러 줄**인데 `start_line`이 없거나 범위가 불명확할 때.
+   - 사용자가 "전부 적용", "이것만 적용", "건너뛰기" 등으로 답하면 그에 맞게 진행.
 
-5. **Apply suggestions to local files**
-   - For each chosen suggestion:
-     - Open the file at `path`.
-     - **Single line**: Replace the line at `line` with the suggested line(s). If the suggestion has multiple lines, replace from that line downward by the number of lines in the suggestion.
-     - **Multiple lines** (when `start_line` and `line` exist): Replace the range `start_line` … `line` with the suggested code. If the suggested line count differs from the range length, replace using the suggested line count.
-   - Preserve **indentation** as in the suggestion. If the suggestion has no trailing newline, only replace the intended line(s).
+5. **로컬 파일에 제안 적용**
+   - 선택한 제안마다:
+     - `path`의 파일을 연다.
+     - **한 줄**: `line` 행을 제안 내용으로 교체. 제안이 여러 줄이면 그 행부터 아래로 제안 줄 수만큼 교체.
+     - **여러 줄** (`start_line`과 `line`이 있을 때): `start_line` … `line` 범위를 제안 코드로 교체. 제안 줄 수가 범위 길이와 다르면 제안 줄 수 기준으로 교체.
+   - 제안에 맞게 **들여쓰기** 유지. 제안에 줄 끝 개행이 없으면 의도한 행만 교체.
 
-6. **Summarize what was applied**
-   - List in short form which files and lines (or ranges) were updated.
-   - Suggest: "Review the changes and use the `commit` command to commit when ready."
+6. **적용 결과 요약**
+   - 어떤 파일·행(또는 범위)을 수정했는지 짧게 나열.
+   - "변경 내용 확인 후 `/commit`으로 커밋하세요" 안내.
 
-7. **Optionally update the PR body**
-   - If at least one suggestion was applied, you may update the PR description.
-   - Add a line under **Description** or **Additional info** in `branch-summary.md`: "Review suggestions applied: (short summary)."
-   - Then PATCH the PR body:
+7. **PR 본문 갱신 (선택)**
+   - 제안을 하나라도 적용했으면 PR 설명을 갱신해도 된다.
+   - `branch-summary.md`의 **설명** 또는 **추가 정보** 아래에 "리뷰 제안 적용: (요약)." 한 줄 추가.
+   - PR 본문 PATCH:
      ```bash
-     gh api repos/ohah/gif2mp4/pulls/<PR-number> -X PATCH -f body=@branch-summary.md
+     gh api repos/ohah/gif2mp4/pulls/<PR번호> -X PATCH -f body=@branch-summary.md
      ```
-   - Use the PR number from step 1. Whether to commit `branch-summary.md` is up to the author.
+   - PR 번호는 1단계 값 사용. `branch-summary.md`를 커밋할지는 작성자 결정.
 
-## Notes
+## 참고
 
-- Run from the repo root with `gh` authenticated.
-- Only **inline review comments** (on "Files changed") are used; general timeline comments are ignored.
-- Only text inside ` ```suggestion ` … ` ``` ` is applied; other text in the comment is not.
-- If the code has changed and line numbers or content no longer match, or if multiple suggestions target the same spot, **ask the user** before applying.
+- 저장소 루트에서 `gh` 인증된 상태로 실행.
+- **인라인 리뷰 코멘트**("파일 변경" 탭)만 사용; 일반 타임라인 코멘트는 사용하지 않음.
+- ` ```suggestion ` … ` ``` ` 안의 텍스트만 적용; 코멘트의 나머지 글은 적용하지 않음.
+- 코드가 바뀌어 행 번호·내용이 안 맞거나, 같은 위치에 제안이 여러 개면 **적용 전에 사용자에게 묻기**.
