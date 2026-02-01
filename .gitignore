@@ -31,7 +31,6 @@ reference/
 # Test / IDE
 test-results/
 playwright-report/
-.cursor/
 
 # OS
 .DS_Store

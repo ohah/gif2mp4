@@ -54,23 +54,23 @@ bun run dev
 
 ## 스크립트
 
-| 스크립트 | 설명 |
-|----------|------|
-| `bun run build:wasm` | decode/mux WASM 빌드 + copy-wasm |
-| `bun run build:wasm:decode` | gif2mp4-decode만 빌드 |
-| `bun run build:wasm:mux` | gif2mp4-mux만 빌드 |
-| `bun run copy-wasm` | pkg-decode, pkg-mux → apps/web/public |
-| `bun run dev` | apps/web 개발 서버 |
-| `bun run preview` | apps/web 프리뷰 |
+| 스크립트                    | 설명                                  |
+| --------------------------- | ------------------------------------- |
+| `bun run build:wasm`        | decode/mux WASM 빌드 + copy-wasm      |
+| `bun run build:wasm:decode` | gif2mp4-decode만 빌드                 |
+| `bun run build:wasm:mux`    | gif2mp4-mux만 빌드                    |
+| `bun run copy-wasm`         | pkg-decode, pkg-mux → apps/web/public |
+| `bun run dev`               | apps/web 개발 서버                    |
+| `bun run preview`           | apps/web 프리뷰                       |
 
 ### mise 사용 시
 
-| 태스크 | 설명 |
-|--------|------|
-| `mise run build-wasm` | WASM 빌드 + 복사 |
-| `mise run install-wasm-pack` | wasm-pack 설치 |
-| `mise run dev` | 예제 사이트 개발 서버 |
-| `mise run preview` | 예제 사이트 프리뷰 |
+| 태스크                       | 설명                  |
+| ---------------------------- | --------------------- |
+| `mise run build-wasm`        | WASM 빌드 + 복사      |
+| `mise run install-wasm-pack` | wasm-pack 설치        |
+| `mise run dev`               | 예제 사이트 개발 서버 |
+| `mise run preview`           | 예제 사이트 프리뷰    |
 
 ## 사용 (코드)
 

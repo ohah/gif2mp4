@@ -1,7 +1,14 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { gifToMp4, initDecode } from '@gif2mp4/core';
+import { gifToMp4, initDecode, decodeGifToFrames, encodeAndMuxToMp4 } from '@gif2mp4/core';
+import { decodeGifWithGifuct } from './decodeGifWithGifuct';
 
 const SAMPLE_GIF_PATH = '/cmd.gif';
+
+export interface BenchmarkResult {
+  wasm: { decodeMs: number; encodeMs: number; totalMs: number };
+  gifuct: { decodeMs: number; encodeMs: number; totalMs: number };
+  frameCount: number;
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -10,9 +17,16 @@ export default function App() {
   const [mp4Blob, setMp4Blob] = useState<Blob | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [frameCount, setFrameCount] = useState<number | null>(null);
+  const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
+  const [benchmarking, setBenchmarking] = useState(false);
 
   const mp4Url = useMemo(() => (mp4Blob ? URL.createObjectURL(mp4Blob) : null), [mp4Blob]);
-  useEffect(() => () => { if (mp4Url) URL.revokeObjectURL(mp4Url); }, [mp4Url]);
+  useEffect(
+    () => () => {
+      if (mp4Url) URL.revokeObjectURL(mp4Url);
+    },
+    [mp4Url]
+  );
 
   const initWasm = useCallback(async () => {
     setError(null);
@@ -49,7 +63,7 @@ export default function App() {
       try {
         const buf = new Uint8Array(await file.arrayBuffer());
         const mp4 = await gifToMp4(buf);
-        setMp4Blob(new Blob([mp4], { type: 'video/mp4' }));
+        setMp4Blob(new Blob([new Uint8Array(mp4)], { type: 'video/mp4' }));
         setFrameCount(null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -59,7 +73,7 @@ export default function App() {
         setLoading(false);
       }
     },
-    [ready],
+    [ready]
   );
 
   const runSample = useCallback(async () => {
@@ -73,7 +87,7 @@ export default function App() {
       if (!res.ok) throw new Error(`sample.gif fetch: ${res.status}`);
       const buf = new Uint8Array(await res.arrayBuffer());
       const mp4 = await gifToMp4(buf);
-      setMp4Blob(new Blob([mp4], { type: 'video/mp4' }));
+      setMp4Blob(new Blob([new Uint8Array(mp4)], { type: 'video/mp4' }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
@@ -82,6 +96,77 @@ export default function App() {
       setLoading(false);
     }
   }, [ready]);
+
+  const runBenchmark = useCallback(
+    async (gifBuffer: Uint8Array) => {
+      if (!ready) return;
+      setBenchmarking(true);
+      setBenchmarkResult(null);
+      setError(null);
+      let frameCount = 0;
+      const errors: string[] = [];
+
+      try {
+        frameCount = decodeGifToFrames(gifBuffer).frames.length;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        setBenchmarking(false);
+        return;
+      }
+
+      let w: BenchmarkResult['wasm'] | null = null;
+      try {
+        const t0w = performance.now();
+        const decodedWasm = decodeGifToFrames(gifBuffer);
+        const t1w = performance.now();
+        await encodeAndMuxToMp4(decodedWasm);
+        const t2w = performance.now();
+        w = {
+          decodeMs: Math.round((t1w - t0w) * 100) / 100,
+          encodeMs: Math.round((t2w - t1w) * 100) / 100,
+          totalMs: Math.round((t2w - t0w) * 100) / 100,
+        };
+      } catch (e) {
+        errors.push(`WASM: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      await new Promise((r) => setTimeout(r, 500));
+
+      let g: BenchmarkResult['gifuct'] | null = null;
+      try {
+        const t0g = performance.now();
+        const decodedGifuct = decodeGifWithGifuct(gifBuffer);
+        const t1g = performance.now();
+        await encodeAndMuxToMp4(decodedGifuct);
+        const t2g = performance.now();
+        g = {
+          decodeMs: Math.round((t1g - t0g) * 100) / 100,
+          encodeMs: Math.round((t2g - t1g) * 100) / 100,
+          totalMs: Math.round((t2g - t0g) * 100) / 100,
+        };
+      } catch (e) {
+        errors.push(`gifuct: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      setBenchmarkResult({
+        wasm: w ?? { decodeMs: 0, encodeMs: 0, totalMs: 0 },
+        gifuct: g ?? { decodeMs: 0, encodeMs: 0, totalMs: 0 },
+        frameCount,
+      });
+      if (errors.length) setError(errors.join(' / '));
+      setBenchmarking(false);
+    },
+    [ready]
+  );
+
+  const onBenchmarkSample = useCallback(async () => {
+    if (!ready) return;
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+    const res = await fetch(`${base}${SAMPLE_GIF_PATH}`);
+    if (!res.ok) throw new Error(`sample fetch: ${res.status}`);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    await runBenchmark(buf);
+  }, [ready, runBenchmark]);
 
   useEffect(() => {
     initWasm();
@@ -94,13 +179,9 @@ export default function App() {
   return (
     <div style={{ padding: 24, maxWidth: 560, margin: '0 auto' }}>
       <h1 style={{ marginBottom: 8 }}>GIF → MP4</h1>
-      <p style={{ color: '#888', marginBottom: 24 }}>
-        gif(Rust) → video(WebCodecs) → mp4(TS)
-      </p>
+      <p style={{ color: '#888', marginBottom: 24 }}>gif(Rust) → video(WebCodecs) → mp4(TS)</p>
 
-      {!ready && !error && (
-        <p style={{ color: '#94a3b8' }}>WASM 로딩 중…</p>
-      )}
+      {!ready && !error && <p style={{ color: '#94a3b8' }}>WASM 로딩 중…</p>}
       {!ready && error && (
         <button
           type="button"
@@ -144,6 +225,25 @@ export default function App() {
           {frameCount != null && (
             <p style={{ color: '#888', marginTop: 8 }}>프레임: {frameCount}</p>
           )}
+          <div style={{ marginTop: 16 }}>
+            <button
+              type="button"
+              data-testid="benchmark-button"
+              onClick={onBenchmarkSample}
+              disabled={benchmarking}
+              style={{
+                padding: '10px 16px',
+                fontSize: 14,
+                background: '#64748b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                cursor: benchmarking ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {benchmarking ? '벤치마크 중…' : '벤치마크 (샘플 GIF)'}
+            </button>
+          </div>
         </>
       )}
 
@@ -157,6 +257,84 @@ export default function App() {
         <p data-testid="video-error" style={{ color: '#fbbf24', marginTop: 8 }} title={videoError}>
           비디오 로드: {videoError}
         </p>
+      )}
+      {benchmarkResult && (
+        <div
+          data-testid="benchmark-result"
+          style={{
+            marginTop: 24,
+            padding: 16,
+            background: '#1e293b',
+            borderRadius: 8,
+            fontSize: 14,
+          }}
+        >
+          <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>
+            벤치마크 결과 (프레임: {benchmarkResult.frameCount})
+          </h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #334155' }}>
+                <th style={{ textAlign: 'left', padding: '8px 0' }}>구분</th>
+                <th style={{ textAlign: 'right', padding: '8px 0' }}>디코드 (ms)</th>
+                <th style={{ textAlign: 'right', padding: '8px 0' }}>인코드+뮤스 (ms)</th>
+                <th style={{ textAlign: 'right', padding: '8px 0' }}>총 (ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #334155' }}>
+                <td style={{ padding: '8px 0' }}>Rust WASM</td>
+                <td style={{ textAlign: 'right', padding: '8px 0' }}>
+                  {benchmarkResult.wasm.totalMs ? benchmarkResult.wasm.decodeMs : '—'}
+                </td>
+                <td style={{ textAlign: 'right', padding: '8px 0' }}>
+                  {benchmarkResult.wasm.totalMs ? benchmarkResult.wasm.encodeMs : '—'}
+                </td>
+                <td style={{ textAlign: 'right', padding: '8px 0' }}>
+                  {benchmarkResult.wasm.totalMs ? benchmarkResult.wasm.totalMs : '실패'}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #334155' }}>
+                <td style={{ padding: '8px 0' }}>gifuct-js</td>
+                <td style={{ textAlign: 'right', padding: '8px 0' }}>
+                  {benchmarkResult.gifuct.totalMs ? benchmarkResult.gifuct.decodeMs : '—'}
+                </td>
+                <td style={{ textAlign: 'right', padding: '8px 0' }}>
+                  {benchmarkResult.gifuct.totalMs ? benchmarkResult.gifuct.encodeMs : '—'}
+                </td>
+                <td style={{ textAlign: 'right', padding: '8px 0' }}>
+                  {benchmarkResult.gifuct.totalMs ? benchmarkResult.gifuct.totalMs : '실패'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={{ marginTop: 12, marginBottom: 0, color: '#94a3b8' }}>
+            {benchmarkResult.wasm.totalMs && benchmarkResult.gifuct.totalMs ? (
+              <>
+                총 시간:{' '}
+                {benchmarkResult.wasm.totalMs <= benchmarkResult.gifuct.totalMs ? (
+                  <>
+                    WASM이{' '}
+                    <strong style={{ color: '#86efac' }}>
+                      {(benchmarkResult.gifuct.totalMs / benchmarkResult.wasm.totalMs).toFixed(2)}배
+                    </strong>{' '}
+                    빠름
+                  </>
+                ) : (
+                  <>
+                    gifuct-js가{' '}
+                    <strong style={{ color: '#fcd34d' }}>
+                      {(benchmarkResult.wasm.totalMs / benchmarkResult.gifuct.totalMs).toFixed(2)}배
+                    </strong>{' '}
+                    빠름
+                  </>
+                )}
+              </>
+            ) : (
+              <>한쪽만 성공해 비교 불가. 위 에러 메시지 확인.</>
+            )}
+          </p>
+        </div>
       )}
       {mp4Blob && mp4Url && (
         <div style={{ marginTop: 24 }}>

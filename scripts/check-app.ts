@@ -11,7 +11,11 @@ async function main() {
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   const timeoutId = setTimeout(() => {
     console.error('TIMEOUT: 스크립트가', TOTAL_TIMEOUT_MS / 1000, '초 내에 완료되지 않았습니다.');
-    if (browser) browser.close().catch(() => {}).finally(() => process.exit(2));
+    if (browser)
+      browser
+        .close()
+        .catch(() => {})
+        .finally(() => process.exit(2));
     else process.exit(2);
   }, TOTAL_TIMEOUT_MS);
 

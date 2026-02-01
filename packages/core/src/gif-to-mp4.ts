@@ -42,7 +42,7 @@ export interface MuxModule {
     width: number,
     height: number,
     framerate: number,
-    chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[],
+    chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[]
   ): Uint8Array;
 }
 
@@ -59,29 +59,35 @@ export interface DecodedGif {
  * Decode GIF to frames (RGBA). Requires initDecode() to have been called.
  * Use with initMux() + gifToMp4() or other muxers for browser-playable MP4.
  */
-export function decodeGifToFrames(
-  gifBuffer: ArrayBuffer | Uint8Array,
-): DecodedGif {
+export function decodeGifToFrames(gifBuffer: ArrayBuffer | Uint8Array): DecodedGif {
   const decodeMod = getDecodeModule();
   if (!decodeMod) {
     throw new Error('Call initDecode(decodeModule) with WASM init first.');
   }
 
-  const bytes =
-    gifBuffer instanceof Uint8Array ? gifBuffer : new Uint8Array(gifBuffer);
+  const bytes = gifBuffer instanceof Uint8Array ? gifBuffer : new Uint8Array(gifBuffer);
   const result = decodeMod.decode_gif(bytes);
   const { frames, widthEnc, heightEnc, framerate } = parseDecodeResult(result);
-  return { frames, width: frames[0].width, height: frames[0].height, widthEnc, heightEnc, framerate };
+  return {
+    frames,
+    width: frames[0].width,
+    height: frames[0].height,
+    widthEnc,
+    heightEnc,
+    framerate,
+  };
 }
 
-function parseDecodeResult(
-  result: unknown,
-): { frames: GifFrame[]; widthEnc: number; heightEnc: number; framerate: number } {
-
+function parseDecodeResult(result: unknown): {
+  frames: GifFrame[];
+  widthEnc: number;
+  heightEnc: number;
+  framerate: number;
+} {
   // decode_gif returns DecodeResult (wasm_bindgen struct with .buffer and .frames getters) or plain { buffer, frames }.
   if (result == null || typeof result !== 'object') {
     throw new Error(
-      `Decode failed: decode_gif must return an object with buffer and frames. Got: ${result == null ? 'null' : typeof result}.`,
+      `Decode failed: decode_gif must return an object with buffer and frames. Got: ${result == null ? 'null' : typeof result}.`
     );
   }
   const raw = result as unknown as Record<string, unknown>;
@@ -90,12 +96,12 @@ function parseDecodeResult(
 
   if (plainBuf == null) {
     throw new Error(
-      'Decode failed: result.buffer is missing. Ensure gif2mp4-decode decode_gif returns DecodeResult or { buffer, frames }.',
+      'Decode failed: result.buffer is missing. Ensure gif2mp4-decode decode_gif returns DecodeResult or { buffer, frames }.'
     );
   }
   if (plainFrames == null || !Array.isArray(plainFrames)) {
     throw new Error(
-      'Decode failed: result.frames is missing or not an array. Ensure gif2mp4-decode decode_gif returns DecodeResult or { buffer, frames }.',
+      'Decode failed: result.frames is missing or not an array. Ensure gif2mp4-decode decode_gif returns DecodeResult or { buffer, frames }.'
     );
   }
 
@@ -104,15 +110,12 @@ function parseDecodeResult(
     buffer = plainBuf;
   } else if (Array.isArray(plainBuf)) {
     buffer = new Uint8Array(plainBuf);
-  } else if (
-    plainBuf != null &&
-    typeof (plainBuf as ArrayBufferView).byteLength === 'number'
-  ) {
+  } else if (plainBuf != null && typeof (plainBuf as ArrayBufferView).byteLength === 'number') {
     const view = plainBuf as ArrayBufferView;
     buffer = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
   } else {
     throw new Error(
-      `Decode failed: result.buffer must be Uint8Array or array of numbers. Got: ${typeof plainBuf}.`,
+      `Decode failed: result.buffer must be Uint8Array or array of numbers. Got: ${typeof plainBuf}.`
     );
   }
 
@@ -124,7 +127,7 @@ function parseDecodeResult(
     const d = m?.delay_centisecs ?? m?.['delay_centisecs'];
     if (o == null || len == null || w == null || h == null || d == null) {
       throw new Error(
-        `Decode failed: frames[${i}] must have offset, length, width, height, delay_centisecs. Got: ${JSON.stringify(m)}.`,
+        `Decode failed: frames[${i}] must have offset, length, width, height, delay_centisecs. Got: ${JSON.stringify(m)}.`
       );
     }
     return {
@@ -156,8 +159,8 @@ function parseDecodeResult(
   const safeMaxPixels = Math.floor(AVC_LEVEL_30_MAX_PIXELS * 0.9);
   if (widthEnc * heightEnc > safeMaxPixels) {
     const scale = Math.sqrt(safeMaxPixels / (widthEnc * heightEnc));
-    widthEnc = Math.max(2, (Math.floor(widthEnc * scale) & ~1));
-    heightEnc = Math.max(2, (Math.floor(heightEnc * scale) & ~1));
+    widthEnc = Math.max(2, Math.floor(widthEnc * scale) & ~1);
+    heightEnc = Math.max(2, Math.floor(heightEnc * scale) & ~1);
   }
   const framerate = inferFramerate(frames);
   return { frames, widthEnc, heightEnc, framerate };
@@ -169,31 +172,24 @@ function parseDecodeResult(
  */
 export async function gifToMp4(
   gifBuffer: ArrayBuffer | Uint8Array,
-  options: GifToMp4Options = {},
+  options: GifToMp4Options = {}
 ): Promise<Uint8Array> {
-  const decodeMod = getDecodeModule();
-  if (!decodeMod) {
-    throw new Error('Call initDecode(decodeModule) with WASM init first.');
-  }
+  const decoded = decodeGifToFrames(gifBuffer);
+  return encodeAndMuxToMp4(decoded, options);
+}
 
-  const bytes =
-    gifBuffer instanceof Uint8Array ? gifBuffer : new Uint8Array(gifBuffer);
-  const result = decodeMod.decode_gif(bytes);
-  const { frames, widthEnc, heightEnc, framerate } = parseDecodeResult(result);
-  const width = frames[0].width;
-  const height = frames[0].height;
+/**
+ * 이미 디코딩된 GIF(DecodedGif)를 MP4로 인코드·뮤스만 수행.
+ * 디코더 비교 벤치마크 시 동일 인코드/뮤스 파이프라인을 쓰기 위해 사용.
+ */
+export async function encodeAndMuxToMp4(
+  decoded: DecodedGif,
+  options: GifToMp4Options = {}
+): Promise<Uint8Array> {
+  const { frames, width, height, widthEnc, heightEnc, framerate } = decoded;
   const bitrate = options.bitrate ?? 1_000_000;
   const framerateOpt = options.framerate ?? framerate;
-
-  return encodeWithWebCodecs(
-    frames,
-    width,
-    height,
-    widthEnc,
-    heightEnc,
-    framerateOpt,
-    bitrate,
-  );
+  return encodeWithWebCodecs(frames, width, height, widthEnc, heightEnc, framerateOpt, bitrate);
 }
 
 let decodeModule: DecodeModule | null = null;
@@ -221,7 +217,7 @@ async function encodeWithWebCodecs(
   widthEnc: number,
   heightEnc: number,
   framerate: number,
-  bitrate: number,
+  bitrate: number
 ): Promise<Uint8Array> {
   const target = new ArrayBufferTarget();
   const frameRateInt = Math.max(1, Math.round(framerate));
@@ -273,9 +269,7 @@ async function encodeWithWebCodecs(
   if (!ctxOut) throw new Error('2d context');
 
   const needScale = widthEnc < width || heightEnc < height;
-  let canvasSrc: OffscreenCanvas | null = needScale
-    ? new OffscreenCanvas(width, height)
-    : null;
+  let canvasSrc: OffscreenCanvas | null = needScale ? new OffscreenCanvas(width, height) : null;
   const ctxSrc = canvasSrc?.getContext('2d');
 
   for (let i = 0; i < frames.length; i++) {
@@ -285,34 +279,23 @@ async function encodeWithWebCodecs(
     let imageData: ImageData;
     if (width === widthEnc && height === heightEnc) {
       imageData = new ImageData(
-        new Uint8ClampedArray(
-          rgba.buffer as ArrayBuffer,
-          rgba.byteOffset,
-          rgba.byteLength,
-        ),
+        new Uint8ClampedArray(rgba.buffer as ArrayBuffer, rgba.byteOffset, rgba.byteLength),
         width,
-        height,
+        height
       );
       ctxOut.putImageData(imageData, 0, 0);
     } else if (needScale && ctxSrc && canvasSrc) {
       imageData = new ImageData(
-        new Uint8ClampedArray(
-          rgba.buffer as ArrayBuffer,
-          rgba.byteOffset,
-          rgba.byteLength,
-        ),
+        new Uint8ClampedArray(rgba.buffer as ArrayBuffer, rgba.byteOffset, rgba.byteLength),
         width,
-        height,
+        height
       );
       ctxSrc.putImageData(imageData, 0, 0);
       ctxOut.drawImage(canvasSrc, 0, 0, width, height, 0, 0, widthEnc, heightEnc);
     } else {
       const padded = new Uint8ClampedArray(widthEnc * heightEnc * 4);
       for (let y = 0; y < height; y++) {
-        padded.set(
-          rgba.subarray(y * width * 4, (y + 1) * width * 4),
-          y * widthEnc * 4,
-        );
+        padded.set(rgba.subarray(y * width * 4, (y + 1) * width * 4), y * widthEnc * 4);
       }
       imageData = new ImageData(padded, widthEnc, heightEnc);
       ctxOut.putImageData(imageData, 0, 0);
