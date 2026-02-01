@@ -1,0 +1,25 @@
+{
+  "name": "gif2mp4",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GIF to MP4 — gif(Rust) → video(WebCodecs) → mp4(Rust)",
+  "scripts": {
+    "build": "bun run build:wasm && bun run --filter '*' build",
+    "check-app": "bun run scripts/check-app.ts",
+    "build:wasm": "bun run build:wasm:decode && bun run build:wasm:mux && bun run copy-wasm",
+    "build:wasm:decode": "cd crates/gif2mp4-decode && wasm-pack build --target web --out-dir ../../packages/core/pkg-decode",
+    "build:wasm:mux": "cd crates/gif2mp4-mux && wasm-pack build --target web --out-dir ../../packages/core/pkg-mux",
+    "copy-wasm": "node scripts/copy-wasm.js",
+    "dev": "bun run --cwd apps/web dev",
+    "preview": "bun run --cwd apps/web preview",
+    "clean": "bun run --filter '*' clean 2>/dev/null; rm -rf packages/core/pkg-decode packages/core/pkg-mux; cargo clean"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "typescript": "latest"
+  }
+}

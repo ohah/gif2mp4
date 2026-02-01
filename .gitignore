@@ -1,0 +1,38 @@
+# Rust
+/target
+
+# WASM build output
+packages/core/pkg-decode
+packages/core/pkg-decode-*
+packages/core/pkg-mux
+packages/core/pkg-mux-*
+apps/web/public/pkg-decode
+apps/web/public/pkg-decode-*
+apps/web/public/pkg-mux
+apps/web/public/pkg-mux-*
+
+# Dependencies
+node_modules
+
+# Build / cache
+dist/
+*.tsbuildinfo
+.cache
+
+# Env / local
+.env
+.env.*
+!.env.example
+mise.local.toml
+
+# Reference (embedded repo)
+reference/
+
+# Test / IDE
+test-results/
+playwright-report/
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db

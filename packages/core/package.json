@@ -1,0 +1,19 @@
+{
+  "name": "@gif2mp4/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GIF→MP4: decode (Rust WASM) + encode (WebCodecs) + mux (Rust WASM)",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo 'WASM built via root build:wasm'",
+    "clean": "rm -rf pkg-decode pkg-mux"
+  },
+  "dependencies": {
+    "mp4-muxer": "^5.2.2"
+  }
+}

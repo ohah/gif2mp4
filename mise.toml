@@ -1,0 +1,21 @@
+# https://mise.jdx.dev/configuration.html
+[tools]
+node = "latest"
+bun = "latest"
+rust = "latest"
+
+[tasks.build-wasm]
+description = "Build decode + mux WASM, then copy to apps/web/public"
+run = "bun run build:wasm"
+
+[tasks.install-wasm-pack]
+description = "Install wasm-pack (required for build:wasm)"
+run = "cargo install wasm-pack"
+
+[tasks.dev]
+description = "Run example web app dev server"
+run = "bun run dev"
+
+[tasks.preview]
+description = "Preview built web app"
+run = "bun run preview"
