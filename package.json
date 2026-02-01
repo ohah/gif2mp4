@@ -3,7 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "description": "GIF to MP4 — gif(Rust) → video(WebCodecs) → mp4(Rust)",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "docs"
+  ],
   "scripts": {
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt . --check",
+    "format:rust": "cargo fmt --all",
+    "format:rust:check": "cargo fmt --all -- --check",
     "build": "bun run build:wasm && bun run --filter '*' build",
     "check-app": "bun run scripts/check-app.ts",
     "build:wasm": "bun run build:wasm:decode && bun run build:wasm:mux && bun run copy-wasm",
@@ -12,14 +22,15 @@
     "copy-wasm": "node scripts/copy-wasm.js",
     "dev": "bun run --cwd apps/web dev",
     "preview": "bun run --cwd apps/web preview",
+    "docs:dev": "bun run --cwd docs dev",
+    "docs:build": "bun run --cwd docs build",
+    "docs:preview": "bun run --cwd docs preview",
     "clean": "bun run --filter '*' clean 2>/dev/null; rm -rf packages/core/pkg-decode packages/core/pkg-mux; cargo clean"
   },
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "devDependencies": {
     "@playwright/test": "^1.58.1",
+    "oxfmt": "latest",
+    "oxlint": "latest",
     "typescript": "latest"
   }
 }

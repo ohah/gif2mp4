@@ -1,0 +1,89 @@
+name: Build & WASM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Check if should run
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.changes.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            build:
+              - 'crates/**'
+              - 'packages/**'
+              - 'apps/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'bun.lock'
+              - '.github/workflows/build.yml'
+
+  build:
+    name: Build and verify WASM
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Skip if no changes
+        if: needs.check.outputs.should-run != 'true'
+        run: echo "No build-related changes, skipping"
+        continue-on-error: false
+
+      - name: Setup Bun
+        if: needs.check.outputs.should-run == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        if: needs.check.outputs.should-run == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        if: needs.check.outputs.should-run == 'true'
+        run: cargo install wasm-pack --locked
+
+      - name: Cache Cargo registry
+        if: needs.check.outputs.should-run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        if: needs.check.outputs.should-run == 'true'
+        run: bun install
+
+      - name: Build (WASM + workspace)
+        if: needs.check.outputs.should-run == 'true'
+        run: bun run build
+
+      - name: Verify WASM artifacts
+        if: needs.check.outputs.should-run == 'true'
+        run: |
+          echo "Checking WASM outputs..."
+          for dir in packages/core/pkg-decode packages/core/pkg-mux; do
+            count=$(find "$dir" -maxdepth 1 -name "*.wasm" 2>/dev/null | wc -l)
+            if [ "$count" -lt 1 ]; then echo "Missing .wasm in $dir"; exit 1; fi
+          done
+          echo "WASM artifacts OK."

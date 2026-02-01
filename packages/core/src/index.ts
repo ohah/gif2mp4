@@ -4,4 +4,4 @@
  */
 
 export type { GifToMp4Options, DecodeResult, DecodedGif, FrameMeta, GifFrame } from './gif-to-mp4';
-export { gifToMp4, decodeGifToFrames, initDecode } from './gif-to-mp4';
+export { gifToMp4, decodeGifToFrames, encodeAndMuxToMp4, initDecode } from './gif-to-mp4';
