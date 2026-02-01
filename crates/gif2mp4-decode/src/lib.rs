@@ -81,8 +81,7 @@ pub fn decode_gif(gif_bytes: &[u8]) -> Result<DecodeResult, JsValue> {
 
     let mut buffer = Vec::new();
     let mut frames = Vec::new();
-    let mut full_frame: Vec<u8> = Vec::new();
-    full_frame.resize(frame_len, 0);
+    let mut full_frame = vec![0; frame_len];
 
     while let Some(frame) = decoder
         .read_next_frame()
