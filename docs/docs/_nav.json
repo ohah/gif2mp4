@@ -1,12 +1,17 @@
 [
   {
-    "text": "가이드",
+    "text": "guide",
     "link": "/guide/",
     "activeMatch": "/guide/"
   },
   {
-    "text": "사용 예시",
+    "text": "usage",
     "link": "/usage/",
     "activeMatch": "/usage/"
+  },
+  {
+    "text": "example",
+    "link": "/example/",
+    "activeMatch": "/example/"
   }
 ]

@@ -10,6 +10,9 @@ hero:
       text: 시작하기
       link: /guide/
     - theme: alt
+      text: 예시
+      link: /example/
+    - theme: alt
       text: GitHub
       link: https://github.com/ohah/gif2mp4
   image:
