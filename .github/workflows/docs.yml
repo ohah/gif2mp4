@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'apps/web/**'
+      - 'packages/core/**'
+      - 'crates/**'
   workflow_dispatch:
 
 permissions:
@@ -29,11 +32,32 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+
       - name: Install dependencies
         run: bun install
 
+      - name: Build WASM
+        run: bun run build:wasm
+
+      - name: Build example app
+        run: bun run --cwd apps/web build
+        env:
+          BASE_PATH: /gif2mp4/app/
+
       - name: Build docs
         run: bun run docs:build
+
+      - name: Copy example app into doc_build
+        run: |
+          mkdir -p docs/doc_build/app
+          cp -r apps/web/dist/* docs/doc_build/app/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

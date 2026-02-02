@@ -1,6 +1,6 @@
 # Example
 
-Minimal example for converting GIF to MP4 in the browser.
+Try the [sample app](#3-run-the-sample-app) below (English / [한국어](/)). Minimal code example below.
 
 ## 1. Init WASM decoder
 
