@@ -13,7 +13,5 @@
     "build": "echo 'WASM built via root build:wasm'",
     "clean": "rm -rf pkg-decode pkg-mux"
   },
-  "dependencies": {
-    "mp4-muxer": "^5.2.2"
-  }
+  "dependencies": {}
 }
