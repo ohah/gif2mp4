@@ -2,8 +2,43 @@
  * GIF → MP4 using:
  * - decode: Rust WASM (gif2mp4-decode)
  * - encode: WebCodecs VideoEncoder (native/HW)
- * - mux: Rust WASM (gif2mp4-mux, 내부 코드)
+ * - mux: mp4-muxer 라이브러리
  */
+
+async function muxWithMp4Muxer(
+  encoded: Awaited<ReturnType<typeof encodeToChunks>>
+): Promise<Uint8Array> {
+  const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer({
+    target,
+    video: {
+      codec: 'avc',
+      width: encoded.widthEnc,
+      height: encoded.heightEnc,
+      frameRate: Math.max(1, Math.round(encoded.framerate)),
+    } as { codec: 'avc'; width: number; height: number },
+    fastStart: 'in-memory',
+  } as ConstructorParameters<typeof Muxer>[0]);
+  const fr = encoded.framerate;
+  const chunks = encoded.chunks;
+  for (let i = 0; i < chunks.length; i++) {
+    const c = chunks[i]!;
+    const durationUs =
+      i + 1 < chunks.length ? chunks[i + 1]!.timestamp - c.timestamp : Math.round(1_000_000 / fr);
+    const chunk = new EncodedVideoChunk({
+      type: c.keyFrame ? 'key' : 'delta',
+      timestamp: c.timestamp,
+      duration: durationUs,
+      data: c.data,
+    });
+    (muxer as { addVideoChunk: (chunk: EncodedVideoChunk, meta?: unknown) => void }).addVideoChunk(
+      chunk
+    );
+  }
+  muxer.finalize();
+  return new Uint8Array((muxer.target as { buffer: ArrayBuffer }).buffer);
+}
 
 export interface GifToMp4Options {
   /** Target framerate for output (default: derived from GIF delays) */
@@ -34,15 +69,6 @@ export interface GifFrame {
   height: number;
   delay_centisecs: number;
   data: Uint8Array;
-}
-
-export interface MuxModule {
-  mux_mp4(
-    width: number,
-    height: number,
-    framerate: number,
-    chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[]
-  ): Uint8Array;
 }
 
 export interface DecodedGif {
@@ -168,6 +194,7 @@ function parseDecodeResult(result: unknown): {
 /**
  * Convert GIF buffer to MP4 buffer.
  * Requires initDecode() to have been called with WASM module.
+ * 인코드·뮤스는 WebCodecs + mp4-muxer.
  */
 export async function gifToMp4(
   gifBuffer: ArrayBuffer | Uint8Array,
@@ -185,29 +212,43 @@ export async function encodeAndMuxToMp4(
   decoded: DecodedGif,
   options: GifToMp4Options = {}
 ): Promise<Uint8Array> {
+  const encoded = await encodeToChunks(decoded, options);
+  return muxWithMp4Muxer(encoded);
+}
+
+/** 인코드만 수행해 청크 반환. */
+export async function encodeToChunks(
+  decoded: DecodedGif,
+  options: GifToMp4Options = {}
+): Promise<{
+  chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[];
+  widthEnc: number;
+  heightEnc: number;
+  framerate: number;
+  description: ArrayBuffer | undefined;
+}> {
   const { frames, width, height, widthEnc, heightEnc, framerate } = decoded;
   const bitrate = options.bitrate ?? 1_000_000;
   const framerateOpt = options.framerate ?? framerate;
-  return encodeWithWebCodecs(frames, width, height, widthEnc, heightEnc, framerateOpt, bitrate);
+  return encodeWithWebCodecsToChunks(
+    frames,
+    width,
+    height,
+    widthEnc,
+    heightEnc,
+    framerateOpt,
+    bitrate
+  );
 }
 
 let decodeModule: DecodeModule | null = null;
-let muxModule: MuxModule | null = null;
 
 export function initDecode(mod: DecodeModule): void {
   decodeModule = mod;
 }
 
-export function initMux(mod: MuxModule): void {
-  muxModule = mod;
-}
-
 function getDecodeModule(): DecodeModule | null {
   return decodeModule;
-}
-
-function getMuxModule(): MuxModule | null {
-  return muxModule;
 }
 
 function inferFramerate(frames: GifFrame[]): number {
@@ -218,7 +259,7 @@ function inferFramerate(frames: GifFrame[]): number {
   return frames.length / totalSecs;
 }
 
-async function encodeWithWebCodecs(
+async function encodeWithWebCodecsToChunks(
   frames: GifFrame[],
   width: number,
   height: number,
@@ -226,13 +267,15 @@ async function encodeWithWebCodecs(
   heightEnc: number,
   framerate: number,
   bitrate: number
-): Promise<Uint8Array> {
-  const muxMod = getMuxModule();
-  if (!muxMod) {
-    throw new Error('Call initMux(muxModule) with WASM init first.');
-  }
-
+): Promise<{
+  chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[];
+  widthEnc: number;
+  heightEnc: number;
+  framerate: number;
+  description: ArrayBuffer | undefined;
+}> {
   const chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[] = [];
+  let description: ArrayBuffer | undefined;
   let rejectEncoder: Error | null = null;
   const encoder = new VideoEncoder({
     output: (chunk: EncodedVideoChunk) => {
@@ -243,19 +286,25 @@ async function encodeWithWebCodecs(
         timestamp: chunk.timestamp ?? 0,
         keyFrame: chunk.type === 'key',
       });
+      const desc = (chunk as EncodedVideoChunk & { decoderConfig?: { description?: ArrayBuffer } })
+        .decoderConfig?.description;
+      if (description == null && desc) {
+        description = desc;
+      }
     },
     error: (e) => {
       rejectEncoder = e;
     },
   });
 
-  const config: VideoEncoderConfig = {
+  const config: VideoEncoderConfig & { avc?: { format?: 'avc' | 'annexb' } } = {
     codec: 'avc1.42E01E',
     width: widthEnc,
     height: heightEnc,
     bitrate,
     framerate,
     hardwareAcceleration: 'prefer-software',
+    avc: { format: 'annexb' },
   };
   try {
     encoder.configure(config);
@@ -286,6 +335,11 @@ async function encodeWithWebCodecs(
   let canvasSrc: OffscreenCanvas | null = needScale ? new OffscreenCanvas(width, height) : null;
   const ctxSrc = canvasSrc?.getContext('2d');
 
+  // VideoFrame(canvas)는 캔버스 참조를 유지함. encode()가 비동기로 처리될 때
+  // 다음 putImageData로 캔버스가 덮어써져 동일(마지막) 프레임이 반복 인코딩될 수 있음.
+  // 매 프레임마다 createImageBitmap으로 픽셀을 복사한 뒤 VideoFrame(bitmap)으로 전달.
+  const bitmapsToClose: ImageBitmap[] = [];
+
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
     const delayUs = Math.max(frame.delay_centisecs * 10_000, minDeltaUs);
@@ -314,7 +368,9 @@ async function encodeWithWebCodecs(
       imageData = new ImageData(padded, widthEnc, heightEnc);
       ctxOut.putImageData(imageData, 0, 0);
     }
-    const videoFrame = new VideoFrame(canvasOut, {
+    const bitmap = await createImageBitmap(canvasOut);
+    bitmapsToClose.push(bitmap);
+    const videoFrame = new VideoFrame(bitmap, {
       timestamp: timestampUs,
       duration: delayUs,
       alpha: 'discard',
@@ -325,6 +381,7 @@ async function encodeWithWebCodecs(
   }
 
   await encoder.flush();
+  for (const b of bitmapsToClose) b.close();
   try {
     encoder.close();
   } catch {
@@ -332,6 +389,5 @@ async function encodeWithWebCodecs(
   }
   if (rejectEncoder) throw rejectEncoder;
 
-  const frameRateNum = Math.max(1, Math.round(framerate));
-  return muxMod.mux_mp4(widthEnc, heightEnc, frameRateNum, chunks);
+  return { chunks, widthEnc, heightEnc, framerate, description };
 }

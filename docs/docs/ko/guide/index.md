@@ -37,7 +37,6 @@ bun run dev
 | --------------------------- | ---------------------------- |
 | `bun run build:wasm`        | decode WASM 빌드 + copy-wasm |
 | `bun run build:wasm:decode` | gif2mp4-decode만 빌드        |
-| `bun run build:wasm:mux`    | gif2mp4-mux만 빌드 (선택)    |
 | `bun run copy-wasm`         | pkg-decode → apps/web/public |
 | `bun run dev`               | apps/web 개발 서버           |
 | `bun run preview`           | apps/web 프리뷰              |

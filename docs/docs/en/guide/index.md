@@ -37,7 +37,6 @@ In the browser: **WASM load** → **Choose GIF** → MP4 convert, play, and down
 | --------------------------- | ----------------------------- |
 | `bun run build:wasm`        | decode WASM build + copy-wasm |
 | `bun run build:wasm:decode` | build gif2mp4-decode only     |
-| `bun run build:wasm:mux`    | build gif2mp4-mux only (opt.) |
 | `bun run copy-wasm`         | pkg-decode → apps/web/public  |
 | `bun run dev`               | apps/web dev server           |
 | `bun run preview`           | apps/web preview              |

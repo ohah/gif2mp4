@@ -82,7 +82,7 @@ jobs:
         if: needs.check.outputs.should-run == 'true'
         run: |
           echo "Checking WASM outputs..."
-          for dir in packages/core/pkg-decode packages/core/pkg-mux; do
+          for dir in packages/core/pkg-decode; do
             count=$(find "$dir" -maxdepth 1 -name "*.wasm" 2>/dev/null | wc -l)
             if [ "$count" -lt 1 ]; then echo "Missing .wasm in $dir"; exit 1; fi
           done
