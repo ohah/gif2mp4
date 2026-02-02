@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { defineConfig } from '@rspress/core';
 
-export default defineConfig({
+const config = {
   root: path.join(__dirname, 'docs'),
   base: '/gif2mp4/',
   builderConfig: {
@@ -32,15 +32,17 @@ export default defineConfig({
   },
   themeConfig: {
     locales: [
-      { lang: 'ko', outlineTitle: '이 페이지에서' },
-      { lang: 'en', outlineTitle: 'On this page' },
+      { lang: 'ko', label: '한국어', outlineTitle: '이 페이지에서' },
+      { lang: 'en', label: 'English', outlineTitle: 'On this page' },
     ],
     socialLinks: [
       {
-        icon: 'github',
-        mode: 'link',
+        icon: 'github' as const,
+        mode: 'link' as const,
         content: 'https://github.com/ohah/gif2mp4',
       },
     ],
   },
-});
+};
+
+export default defineConfig(config);
