@@ -7,6 +7,9 @@ hero:
   tagline: gif(Rust WASM) → video(WebCodecs) → mp4(mp4-muxer)
   actions:
     - theme: brand
+      text: 데모 체험
+      link: /app/
+    - theme: alt
       text: 시작하기
       link: /guide/
     - theme: alt

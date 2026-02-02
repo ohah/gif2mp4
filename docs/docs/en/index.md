@@ -7,6 +7,9 @@ hero:
   tagline: gif(Rust WASM) → video(WebCodecs) → mp4(mp4-muxer)
   actions:
     - theme: brand
+      text: Try Demo
+      link: /app/
+    - theme: alt
       text: Get Started
       link: /en/guide/
     - theme: alt

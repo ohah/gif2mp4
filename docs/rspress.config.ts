@@ -3,6 +3,7 @@ import { defineConfig } from '@rspress/core';
 
 export default defineConfig({
   root: path.join(__dirname, 'docs'),
+  base: '/gif2mp4/',
   lang: 'ko',
   locales: [
     {
