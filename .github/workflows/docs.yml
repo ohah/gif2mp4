@@ -9,6 +9,7 @@ on:
       - 'apps/web/**'
       - 'packages/core/**'
       - 'crates/**'
+      - 'scripts/**'
   workflow_dispatch:
 
 permissions:
@@ -38,7 +39,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+        run: cargo install wasm-pack --locked
 
       - name: Install dependencies
         run: bun install
