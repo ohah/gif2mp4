@@ -18,6 +18,8 @@ node_modules
 dist/
 *.tsbuildinfo
 .cache
+**/vite.config.d.ts
+**/vite.config.js
 
 # Env / local
 .env
