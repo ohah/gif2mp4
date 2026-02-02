@@ -3,9 +3,9 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const publicDir = path.join(root, 'apps', 'web', 'public');
 
-// WASM pkgs (pkg-decode, pkg-mux + v2 경로로도 복사해 캐시 우회)
+// WASM pkg (pkg-decode + v2 경로로도 복사해 캐시 우회)
 const coreDir = path.join(root, 'packages', 'core');
-for (const name of ['pkg-decode', 'pkg-mux']) {
+for (const name of ['pkg-decode']) {
   const src = path.join(coreDir, name);
   const dest = path.join(publicDir, name);
   const destV2 = path.join(publicDir, name + '-v2');

@@ -1,6 +1,6 @@
 # GIF → MP4
 
-Bun 모노레포 + Rust 워크스페이스. 파이프라인: **gif(Rust WASM) → video(WebCodecs) → mp4(mp4-muxer, TS)**.
+Bun 모노레포 + Rust 워크스페이스. 파이프라인: **gif(Rust WASM) → video(WebCodecs) → mp4(자체 TS 뮤서)**.
 
 ## 구조
 
@@ -9,8 +9,7 @@ gif2mp4/
 ├── package.json          # Bun workspaces
 ├── Cargo.toml            # Rust workspace (crates/*)
 ├── crates/
-│   ├── gif2mp4-decode/   # WASM: GIF → 프레임 (RGBA + delay)
-│   └── gif2mp4-mux/      # WASM: H.264 청크 → MP4
+│   └── gif2mp4-decode/   # WASM: GIF → 프레임 (RGBA + delay)
 ├── packages/
 │   └── core/             # TS: decode + WebCodecs encode + mux, gifToMp4()
 ├── apps/
@@ -43,7 +42,7 @@ mise run install-wasm-pack   # wasm-pack 설치 (한 번만)
 # 의존성
 bun install
 
-# WASM 빌드 (decode + mux) 후 apps/web/public 로 복사
+# WASM 빌드 (decode) 후 apps/web/public 로 복사
 bun run build:wasm
 
 # 예제 사이트 개발 서버
@@ -54,14 +53,13 @@ bun run dev
 
 ## 스크립트
 
-| 스크립트                    | 설명                                  |
-| --------------------------- | ------------------------------------- |
-| `bun run build:wasm`        | decode/mux WASM 빌드 + copy-wasm      |
-| `bun run build:wasm:decode` | gif2mp4-decode만 빌드                 |
-| `bun run build:wasm:mux`    | gif2mp4-mux만 빌드                    |
-| `bun run copy-wasm`         | pkg-decode, pkg-mux → apps/web/public |
-| `bun run dev`               | apps/web 개발 서버                    |
-| `bun run preview`           | apps/web 프리뷰                       |
+| 스크립트                    | 설명                         |
+| --------------------------- | ---------------------------- |
+| `bun run build:wasm`        | decode WASM 빌드 + copy-wasm |
+| `bun run build:wasm:decode` | gif2mp4-decode만 빌드        |
+| `bun run copy-wasm`         | pkg-decode → apps/web/public |
+| `bun run dev`               | apps/web 개발 서버           |
+| `bun run preview`           | apps/web 프리뷰              |
 
 ### mise 사용 시
 

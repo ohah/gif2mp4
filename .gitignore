@@ -4,12 +4,8 @@
 # WASM build output
 packages/core/pkg-decode
 packages/core/pkg-decode-*
-packages/core/pkg-mux
-packages/core/pkg-mux-*
 apps/web/public/pkg-decode
 apps/web/public/pkg-decode-*
-apps/web/public/pkg-mux
-apps/web/public/pkg-mux-*
 
 # Dependencies
 node_modules

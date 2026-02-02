@@ -18,7 +18,6 @@
     "**/target/**",
     "**/*.pdb",
     "**/pkg-decode/**",
-    "**/pkg-mux/**",
     "reference/**",
     "**/.rspress/**",
     "docs/doc_build/**"

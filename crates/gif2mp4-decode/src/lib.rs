@@ -64,12 +64,11 @@ impl DecodeResult {
 }
 
 /// Decode GIF bytes into one buffer + frame metadata.
-/// Each frame is composited to full canvas size (like rustwasm-gif) so partial/delta frames work.
-/// Returns DecodeResult (wasm_bindgen struct with .buffer and .frames getters).
+/// Uses gif-dispose so disposal (restore to background / previous) is applied; each frame is the correct full image.
 #[wasm_bindgen]
 pub fn decode_gif(gif_bytes: &[u8]) -> Result<DecodeResult, JsValue> {
     let mut options = DecodeOptions::new();
-    options.set_color_output(gif::ColorOutput::RGBA);
+    options.set_color_output(gif::ColorOutput::Indexed);
 
     let mut decoder = options
         .read_info(std::io::Cursor::new(gif_bytes))
@@ -81,28 +80,26 @@ pub fn decode_gif(gif_bytes: &[u8]) -> Result<DecodeResult, JsValue> {
 
     let mut buffer = Vec::new();
     let mut frames = Vec::new();
-    let mut full_frame = vec![0; frame_len];
+    let mut screen = gif_dispose::Screen::new_decoder(&decoder);
 
     while let Some(frame) = decoder
         .read_next_frame()
         .map_err(|e| JsValue::from_str(&e.to_string()))?
     {
-        let frame_buf = frame.buffer.to_vec();
-        let left = frame.left as usize;
-        let top = frame.top as usize;
-        let frame_width = frame.width as usize;
-        let constant_offset = top * (width as usize) + left;
+        screen
+            .blit_frame(&frame)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        for (i, pixel) in frame_buf.chunks(4).enumerate() {
-            if pixel.len() == 4 && pixel[3] != 0 {
-                let index =
-                    constant_offset + (i / frame_width) * (width as usize) + (i % frame_width);
-                full_frame[index * 4..index * 4 + 4].copy_from_slice(pixel);
-            }
+        let img = screen.pixels_rgba();
+        let mut rgba = Vec::with_capacity(frame_len);
+        for p in img.buf().iter() {
+            rgba.push(p.r);
+            rgba.push(p.g);
+            rgba.push(p.b);
+            rgba.push(p.a);
         }
-
         let offset = buffer.len() as u32;
-        buffer.extend_from_slice(&full_frame);
+        buffer.extend_from_slice(&rgba);
         frames.push(FrameMeta {
             offset,
             length: frame_len as u32,
