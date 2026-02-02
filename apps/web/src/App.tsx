@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { gifToMp4, initDecode, decodeGifToFrames, encodeAndMuxToMp4 } from '@gif2mp4/core';
+import { gifToMp4, initDecode, initMux, decodeGifToFrames, encodeAndMuxToMp4 } from '@gif2mp4/core';
 import { decodeGifWithGifuct } from './decodeGifWithGifuct';
 
 /** 예제/벤치마크용 GIF (로컬 움짤.gif → public/umjjal.gif) */
@@ -45,6 +45,16 @@ export default function App() {
         throw new Error('Decode WASM instance invalid');
       }
       initDecode({ ...decodeInstance, decode_gif: decodeGifWrapper });
+
+      const muxPkg = `${base}/pkg-mux-v5`;
+      const muxMod = await import(/* @vite-ignore */ `${muxPkg}/gif2mp4_mux.js`);
+      const muxInit = muxMod?.default;
+      if (typeof muxInit !== 'function') throw new Error('Mux WASM init not loaded');
+      const muxUrl = `${muxPkg}/gif2mp4_mux_bg.wasm`;
+      const muxInstance = await muxInit({ module_or_path: muxUrl });
+      if (!muxInstance?.mux_mp4) throw new Error('Mux WASM instance invalid');
+      initMux({ mux_mp4: muxInstance.mux_mp4 });
+
       setReady(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

@@ -2,9 +2,8 @@
  * GIF → MP4 using:
  * - decode: Rust WASM (gif2mp4-decode)
  * - encode: WebCodecs VideoEncoder (native/HW)
- * - mux: mp4-muxer (pure TS)
+ * - mux: Rust WASM (gif2mp4-mux, 내부 코드)
  */
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 
 export interface GifToMp4Options {
   /** Target framerate for output (default: derived from GIF delays) */
@@ -193,13 +192,22 @@ export async function encodeAndMuxToMp4(
 }
 
 let decodeModule: DecodeModule | null = null;
+let muxModule: MuxModule | null = null;
 
 export function initDecode(mod: DecodeModule): void {
   decodeModule = mod;
 }
 
+export function initMux(mod: MuxModule): void {
+  muxModule = mod;
+}
+
 function getDecodeModule(): DecodeModule | null {
   return decodeModule;
+}
+
+function getMuxModule(): MuxModule | null {
+  return muxModule;
 }
 
 function inferFramerate(frames: GifFrame[]): number {
@@ -219,17 +227,23 @@ async function encodeWithWebCodecs(
   framerate: number,
   bitrate: number
 ): Promise<Uint8Array> {
-  const target = new ArrayBufferTarget();
-  const frameRateInt = Math.max(1, Math.round(framerate));
-  const muxer = new Muxer({
-    target,
-    video: { codec: 'avc', width: widthEnc, height: heightEnc, frameRate: frameRateInt },
-    fastStart: 'in-memory',
-  });
+  const muxMod = getMuxModule();
+  if (!muxMod) {
+    throw new Error('Call initMux(muxModule) with WASM init first.');
+  }
 
+  const chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[] = [];
   let rejectEncoder: Error | null = null;
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => muxer.addVideoChunk(chunk, metadata ?? undefined),
+    output: (chunk: EncodedVideoChunk) => {
+      const data = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(data);
+      chunks.push({
+        data,
+        timestamp: chunk.timestamp ?? 0,
+        keyFrame: chunk.type === 'key',
+      });
+    },
     error: (e) => {
       rejectEncoder = e;
     },
@@ -241,7 +255,7 @@ async function encodeWithWebCodecs(
     height: heightEnc,
     bitrate,
     framerate,
-    hardwareAcceleration: 'prefer-hardware',
+    hardwareAcceleration: 'prefer-software',
   };
   try {
     encoder.configure(config);
@@ -318,6 +332,6 @@ async function encodeWithWebCodecs(
   }
   if (rejectEncoder) throw rejectEncoder;
 
-  muxer.finalize();
-  return new Uint8Array(target.buffer);
+  const frameRateNum = Math.max(1, Math.round(framerate));
+  return muxMod.mux_mp4(widthEnc, heightEnc, frameRateNum, chunks);
 }
