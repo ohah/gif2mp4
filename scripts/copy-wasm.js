@@ -23,10 +23,19 @@ for (const name of ['pkg-decode', 'pkg-mux']) {
   }
 }
 
-// 루트 cmd.gif -> public
-const cmdGif = path.join(root, 'cmd.gif');
-if (fs.existsSync(cmdGif)) {
-  fs.mkdirSync(publicDir, { recursive: true });
-  fs.cpSync(cmdGif, path.join(publicDir, 'cmd.gif'));
-  console.log('Copied cmd.gif ->', publicDir);
+// 루트 움짤.gif -> public/umjjal.gif (없으면 cmd.gif로 대체)
+const umjjalDest = path.join(publicDir, 'umjjal.gif');
+fs.mkdirSync(publicDir, { recursive: true });
+try {
+  const umjjalSrc = path.join(root, '움짤.gif');
+  const cmdGif = path.join(root, 'cmd.gif');
+  if (fs.existsSync(umjjalSrc)) {
+    fs.cpSync(umjjalSrc, umjjalDest);
+    console.log('Copied 움짤.gif ->', umjjalDest);
+  } else if (fs.existsSync(cmdGif)) {
+    fs.cpSync(cmdGif, umjjalDest);
+    console.log('Copied cmd.gif -> umjjal.gif (fallback)');
+  }
+} catch (e) {
+  console.warn('Sample GIF copy skipped:', e.message);
 }

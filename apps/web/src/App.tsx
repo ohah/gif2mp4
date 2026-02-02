@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { gifToMp4, initDecode, decodeGifToFrames, encodeAndMuxToMp4 } from '@gif2mp4/core';
 import { decodeGifWithGifuct } from './decodeGifWithGifuct';
 
-const SAMPLE_GIF_PATH = '/cmd.gif';
+/** 예제/벤치마크용 GIF (로컬 움짤.gif → public/umjjal.gif) */
+const SAMPLE_GIF_PATH = '/umjjal.gif';
 
 export interface BenchmarkResult {
   wasm: { decodeMs: number; encodeMs: number; totalMs: number };
@@ -84,7 +85,7 @@ export default function App() {
     try {
       const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
       const res = await fetch(`${base}${SAMPLE_GIF_PATH}`);
-      if (!res.ok) throw new Error(`sample.gif fetch: ${res.status}`);
+      if (!res.ok) throw new Error(`sample GIF fetch: ${res.status}`);
       const buf = new Uint8Array(await res.arrayBuffer());
       const mp4 = await gifToMp4(buf);
       setMp4Blob(new Blob([mp4 as BlobPart], { type: 'video/mp4' }));
@@ -163,7 +164,7 @@ export default function App() {
     if (!ready) return;
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
     const res = await fetch(`${base}${SAMPLE_GIF_PATH}`);
-    if (!res.ok) throw new Error(`sample fetch: ${res.status}`);
+    if (!res.ok) throw new Error(`benchmark GIF fetch: ${res.status}`);
     const buf = new Uint8Array(await res.arrayBuffer());
     await runBenchmark(buf);
   }, [ready, runBenchmark]);
@@ -241,7 +242,7 @@ export default function App() {
                 cursor: benchmarking ? 'not-allowed' : 'pointer',
               }}
             >
-              {benchmarking ? '벤치마크 중…' : '벤치마크 (샘플 GIF)'}
+              {benchmarking ? '벤치마크 중…' : '벤치마크 (움짤.gif)'}
             </button>
           </div>
         </>
