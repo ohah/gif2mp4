@@ -35,6 +35,8 @@ try {
   } else if (fs.existsSync(cmdGif)) {
     fs.cpSync(cmdGif, umjjalDest);
     console.log('Copied cmd.gif -> umjjal.gif (fallback)');
+  } else {
+    console.warn('Sample GIF copy skipped: neither 움짤.gif nor cmd.gif found.');
   }
 } catch (e) {
   console.warn('Sample GIF copy skipped:', e.message);
