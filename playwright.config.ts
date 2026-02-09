@@ -12,7 +12,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    trace: 'on-first-retry',
+    traceOnFirstRetry: true,
     video: 'retain-on-failure',
   },
   projects: [
