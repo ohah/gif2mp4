@@ -2,49 +2,8 @@
  * GIF → MP4 using:
  * - decode: Rust WASM (gif2mp4-decode)
  * - encode: WebCodecs VideoEncoder (native/HW)
-<<<<<<< HEAD
- * - mux: mp4-muxer 라이브러리
-=======
- * - mux: mp4-muxer (pure TS)
->>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
+ * - mux: internal Rust WASM (gif2mp4-mux)
  */
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
-
-async function muxWithMp4Muxer(
-  encoded: Awaited<ReturnType<typeof encodeToChunks>>
-): Promise<Uint8Array> {
-  const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
-  const target = new ArrayBufferTarget();
-  const muxer = new Muxer({
-    target,
-    video: {
-      codec: 'avc',
-      width: encoded.widthEnc,
-      height: encoded.heightEnc,
-      frameRate: Math.max(1, Math.round(encoded.framerate)),
-    } as { codec: 'avc'; width: number; height: number },
-    fastStart: 'in-memory',
-  } as ConstructorParameters<typeof Muxer>[0]);
-  const fr = encoded.framerate;
-  const chunks = encoded.chunks;
-  for (let i = 0; i < chunks.length; i++) {
-    const c = chunks[i]!;
-    const durationUs =
-      i + 1 < chunks.length ? chunks[i + 1]!.timestamp - c.timestamp : Math.round(1_000_000 / fr);
-    const chunk = new EncodedVideoChunk({
-      type: c.keyFrame ? 'key' : 'delta',
-      timestamp: c.timestamp,
-      duration: durationUs,
-      data: c.data,
-    });
-    (muxer as { addVideoChunk: (chunk: EncodedVideoChunk, meta?: unknown) => void }).addVideoChunk(
-      chunk
-    );
-  }
-  muxer.finalize();
-  return new Uint8Array((muxer.target as { buffer: ArrayBuffer }).buffer);
-}
-
 export interface GifToMp4Options {
   /** Target framerate for output (default: derived from GIF delays) */
   framerate?: number;
@@ -264,6 +223,40 @@ function inferFramerate(frames: GifFrame[]): number {
   return frames.length / totalSecs;
 }
 
+async function muxWithMp4Muxer(
+  encoded: Awaited<ReturnType<typeof encodeToChunks>>
+): Promise<Uint8Array> {
+  const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer({
+    target,
+    video: {
+      codec: 'avc',
+      width: encoded.widthEnc,
+      height: encoded.heightEnc,
+      frameRate: Math.max(1, Math.round(encoded.framerate)),
+    } as { codec: 'avc'; width: number; height: number },
+  } as ConstructorParameters<typeof Muxer>[0]);
+  const fr = encoded.framerate;
+  const chunks = encoded.chunks;
+  for (let i = 0; i < chunks.length; i++) {
+    const c = chunks[i]!;
+    const durationUs =
+      i + 1 < chunks.length ? chunks[i + 1]!.timestamp - c.timestamp : Math.round(1_000_000 / fr);
+    const chunk = new EncodedVideoChunk({
+      type: c.keyFrame ? 'key' : 'delta',
+      timestamp: c.timestamp,
+      duration: durationUs,
+      data: c.data,
+    });
+    (muxer as { addVideoChunk: (chunk: EncodedVideoChunk, meta?: unknown) => void }).addVideoChunk(
+      chunk
+    );
+  }
+  muxer.finalize();
+  return new Uint8Array((muxer.target as { buffer: ArrayBuffer }).buffer);
+}
+
 async function encodeWithWebCodecsToChunks(
   frames: GifFrame[],
   width: number,
@@ -272,7 +265,6 @@ async function encodeWithWebCodecsToChunks(
   heightEnc: number,
   framerate: number,
   bitrate: number
-<<<<<<< HEAD
 ): Promise<{
   chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[];
   widthEnc: number;
@@ -283,8 +275,17 @@ async function encodeWithWebCodecsToChunks(
   const chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[] = [];
   let description: ArrayBuffer | undefined;
   let rejectEncoder: Error | null = null;
-  const encoder = new VideoEncoder({
-    output: (chunk: EncodedVideoChunk) => {
+
+  const config: VideoEncoderConfig = {
+    codec: 'avc1.42E01E',
+    width: widthEnc,
+    height: heightEnc,
+    bitrate,
+    hardwareAcceleration: 'prefer-hardware',
+  };
+
+  const encoder2 = new VideoEncoder({
+    output: (chunk) => {
       const data = new Uint8Array(chunk.byteLength);
       chunk.copyTo(data);
       chunks.push({
@@ -298,49 +299,18 @@ async function encodeWithWebCodecsToChunks(
         description = desc;
       }
     },
-  );
-
-  const target = new ArrayBufferTarget();
-  const frameRateInt = Math.max(1, Math.round(framerate));
-  const muxer = new Muxer({
-    target,
-    video: { codec: 'avc', width: widthEnc, height: heightEnc, frameRate: frameRateInt },
-    fastStart: 'in-memory',
+    error: () => {}, // Error handler placeholder
   });
 
-  let rejectEncoder: Error | null = null;
-  const encoder = new VideoEncoder({
-    output: (chunk, metadata) => muxer.addVideoChunk(chunk, metadata ?? undefined),
-    error: (e) => {
-      rejectEncoder = e;
-    },
-  });
-
-  const config: VideoEncoderConfig = {
-    codec: 'avc1.42E01E',
-    width: widthEnc,
-    height: heightEnc,
-    bitrate,
-    framerate,
-    hardwareAcceleration: 'prefer-hardware',
-  };
   try {
-    encoder.configure(config);
+    encoder2.configure(config);
   } catch (e) {
     try {
-      encoder.close();
+      encoder2.close();
     } catch {
       /* already closed */
     }
     throw e;
-  }
-  if (rejectEncoder) {
-    try {
-      encoder.close();
-    } catch {
-      /* already closed */
-    }
-    throw rejectEncoder;
   }
 
   let timestampUs = 0;
@@ -393,24 +363,19 @@ async function encodeWithWebCodecsToChunks(
       duration: delayUs,
       alpha: 'discard',
     });
-    encoder.encode(videoFrame, { keyFrame: i === 0 });
+    encoder2.encode(videoFrame, { keyFrame: i === 0 });
     videoFrame.close();
     timestampUs += delayUs;
   }
 
-  await encoder.flush();
+  await encoder2.flush();
   for (const b of bitmapsToClose) b.close();
   try {
-    encoder.close();
+    encoder2.close();
   } catch {
     /* already closed on error */
   }
   if (rejectEncoder) throw rejectEncoder;
 
-<<<<<<< HEAD
   return { chunks, widthEnc, heightEnc, framerate, description };
-=======
-  muxer.finalize();
-  return new Uint8Array(target.buffer);
->>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
 }
