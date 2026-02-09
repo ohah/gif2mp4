@@ -45,10 +45,6 @@ export default function App() {
         throw new Error('Decode WASM instance invalid');
       }
       initDecode({ ...decodeInstance, decode_gif: decodeGifWrapper });
-<<<<<<< HEAD
-
-=======
->>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
       setReady(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

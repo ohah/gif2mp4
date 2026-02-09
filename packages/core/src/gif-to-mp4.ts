@@ -298,8 +298,8 @@ async function encodeWithWebCodecsToChunks(
         description = desc;
       }
     },
-=======
-): Promise<Uint8Array> {
+  );
+
   const target = new ArrayBufferTarget();
   const frameRateInt = Math.max(1, Math.round(framerate));
   const muxer = new Muxer({
@@ -311,24 +311,18 @@ async function encodeWithWebCodecsToChunks(
   let rejectEncoder: Error | null = null;
   const encoder = new VideoEncoder({
     output: (chunk, metadata) => muxer.addVideoChunk(chunk, metadata ?? undefined),
->>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
     error: (e) => {
       rejectEncoder = e;
     },
   });
 
-  const config: VideoEncoderConfig & { avc?: { format?: 'avc' | 'annexb' } } = {
+  const config: VideoEncoderConfig = {
     codec: 'avc1.42E01E',
     width: widthEnc,
     height: heightEnc,
     bitrate,
     framerate,
-<<<<<<< HEAD
-    hardwareAcceleration: 'prefer-software',
-    avc: { format: 'annexb' },
-=======
     hardwareAcceleration: 'prefer-hardware',
->>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
   };
   try {
     encoder.configure(config);
