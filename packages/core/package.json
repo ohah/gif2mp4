@@ -19,6 +19,10 @@
     "clean": "rm -rf pkg-decode pkg-decode-*"
   },
   "dependencies": {
+<<<<<<< HEAD
     "mp4-muxer": "^1.0.3"
+=======
+    "mp4-muxer": "^5.2.2"
+>>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
   }
 }
