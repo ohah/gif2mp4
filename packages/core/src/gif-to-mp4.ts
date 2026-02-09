@@ -2,8 +2,13 @@
  * GIF → MP4 using:
  * - decode: Rust WASM (gif2mp4-decode)
  * - encode: WebCodecs VideoEncoder (native/HW)
+<<<<<<< HEAD
  * - mux: mp4-muxer 라이브러리
+=======
+ * - mux: mp4-muxer (pure TS)
+>>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
  */
+import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 
 async function muxWithMp4Muxer(
   encoded: Awaited<ReturnType<typeof encodeToChunks>>
@@ -267,6 +272,7 @@ async function encodeWithWebCodecsToChunks(
   heightEnc: number,
   framerate: number,
   bitrate: number
+<<<<<<< HEAD
 ): Promise<{
   chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[];
   widthEnc: number;
@@ -292,6 +298,20 @@ async function encodeWithWebCodecsToChunks(
         description = desc;
       }
     },
+=======
+): Promise<Uint8Array> {
+  const target = new ArrayBufferTarget();
+  const frameRateInt = Math.max(1, Math.round(framerate));
+  const muxer = new Muxer({
+    target,
+    video: { codec: 'avc', width: widthEnc, height: heightEnc, frameRate: frameRateInt },
+    fastStart: 'in-memory',
+  });
+
+  let rejectEncoder: Error | null = null;
+  const encoder = new VideoEncoder({
+    output: (chunk, metadata) => muxer.addVideoChunk(chunk, metadata ?? undefined),
+>>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
     error: (e) => {
       rejectEncoder = e;
     },
@@ -303,8 +323,12 @@ async function encodeWithWebCodecsToChunks(
     height: heightEnc,
     bitrate,
     framerate,
+<<<<<<< HEAD
     hardwareAcceleration: 'prefer-software',
     avc: { format: 'annexb' },
+=======
+    hardwareAcceleration: 'prefer-hardware',
+>>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
   };
   try {
     encoder.configure(config);
@@ -389,5 +413,10 @@ async function encodeWithWebCodecsToChunks(
   }
   if (rejectEncoder) throw rejectEncoder;
 
+<<<<<<< HEAD
   return { chunks, widthEnc, heightEnc, framerate, description };
+=======
+  muxer.finalize();
+  return new Uint8Array(target.buffer);
+>>>>>>> parent of ef709fe (refactor: mp4-muxer 제거, 내부 Rust WASM 뮤스(gif2mp4-mux) 사용)
 }
