@@ -87,7 +87,7 @@ pub fn decode_gif(gif_bytes: &[u8]) -> Result<DecodeResult, JsValue> {
         .map_err(|e| JsValue::from_str(&e.to_string()))?
     {
         screen
-            .blit_frame(frame)
+            .blit_frame(&frame)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let img = screen.pixels_rgba();
