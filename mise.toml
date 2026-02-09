@@ -1,6 +1,6 @@
 # https://mise.jdx.dev/configuration.html
 [tools]
-node = "latest"
+node = "24"
 bun = "latest"
 rust = "latest"
 
