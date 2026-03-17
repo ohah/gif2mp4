@@ -2,7 +2,7 @@
  * GIF → MP4 using:
  * - decode: Rust WASM (gif2mp4-decode)
  * - encode: WebCodecs VideoEncoder (native/HW)
- * - mux: internal Rust WASM (gif2mp4-mux)
+ * - mux: mp4-muxer (pure TS)
  */
 export interface GifToMp4Options {
   /** Target framerate for output (default: derived from GIF delays) */
@@ -185,7 +185,7 @@ export async function encodeToChunks(
   decoded: DecodedGif,
   options: GifToMp4Options = {}
 ): Promise<{
-  chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[];
+  chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean; meta?: EncodedVideoChunkMetadata }[];
   widthEnc: number;
   heightEnc: number;
   framerate: number;
@@ -236,6 +236,8 @@ async function muxWithMp4Muxer(
       height: encoded.heightEnc,
       frameRate: Math.max(1, Math.round(encoded.framerate)),
     } as { codec: 'avc'; width: number; height: number },
+    fastStart: 'in-memory',
+    firstTimestampBehavior: 'offset',
   } as ConstructorParameters<typeof Muxer>[0]);
   const fr = encoded.framerate;
   const chunks = encoded.chunks;
@@ -250,7 +252,8 @@ async function muxWithMp4Muxer(
       data: c.data,
     });
     (muxer as { addVideoChunk: (chunk: EncodedVideoChunk, meta?: unknown) => void }).addVideoChunk(
-      chunk
+      chunk,
+      c.meta ?? undefined
     );
   }
   muxer.finalize();
@@ -266,51 +269,77 @@ async function encodeWithWebCodecsToChunks(
   framerate: number,
   bitrate: number
 ): Promise<{
-  chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[];
+  chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean; meta?: EncodedVideoChunkMetadata }[];
   widthEnc: number;
   heightEnc: number;
   framerate: number;
   description: ArrayBuffer | undefined;
 }> {
-  const chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean }[] = [];
+  const chunks: { data: Uint8Array; timestamp: number; keyFrame: boolean; meta?: EncodedVideoChunkMetadata }[] = [];
   let description: ArrayBuffer | undefined;
   let rejectEncoder: Error | null = null;
 
-  const config: VideoEncoderConfig = {
+  const baseConfig: VideoEncoderConfig = {
     codec: 'avc1.42E01E',
     width: widthEnc,
     height: heightEnc,
     bitrate,
-    hardwareAcceleration: 'prefer-hardware',
   };
 
-  const encoder2 = new VideoEncoder({
-    output: (chunk) => {
-      const data = new Uint8Array(chunk.byteLength);
-      chunk.copyTo(data);
-      chunks.push({
-        data,
-        timestamp: chunk.timestamp ?? 0,
-        keyFrame: chunk.type === 'key',
-      });
-      const desc = (chunk as EncodedVideoChunk & { decoderConfig?: { description?: ArrayBuffer } })
-        .decoderConfig?.description;
-      if (description == null && desc) {
-        description = desc;
-      }
-    },
-    error: () => {}, // Error handler placeholder
-  });
+  function createEncoder() {
+    return new VideoEncoder({
+      output: (chunk, metadata) => {
+        const data = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(data);
+        chunks.push({
+          data,
+          timestamp: chunk.timestamp ?? 0,
+          keyFrame: chunk.type === 'key',
+          meta: metadata,
+        });
+        const desc = metadata?.decoderConfig?.description;
+        if (description == null && desc) {
+          description = desc as ArrayBuffer;
+        }
+      },
+      error: (e) => {
+        rejectEncoder = e;
+      },
+    });
+  }
 
-  try {
-    encoder2.configure(config);
-  } catch (e) {
+  let encoder2 = createEncoder();
+
+  // prefer-hardware → prefer-software → no preference 순으로 시도
+  const hwAccelOptions: VideoEncoderConfig['hardwareAcceleration'][] = [
+    'prefer-hardware',
+    'prefer-software',
+    'no-preference',
+  ];
+  let configured = false;
+  for (const hwAccel of hwAccelOptions) {
+    const config = { ...baseConfig, hardwareAcceleration: hwAccel };
     try {
-      encoder2.close();
+      const support = await VideoEncoder.isConfigSupported(config);
+      if (!support.supported) continue;
+      encoder2.configure(config);
+      // configure()는 비동기 에러를 발생시킬 수 있으므로, 마이크로태스크가 처리되도록 대기
+      await new Promise((r) => setTimeout(r, 0));
+      if (encoder2.state === 'configured') {
+        configured = true;
+        break;
+      }
+      // 에러 발생 시 새 인코더로 재시도
+      rejectEncoder = null;
+      encoder2 = createEncoder();
     } catch {
-      /* already closed */
+      rejectEncoder = null;
+      encoder2 = createEncoder();
     }
-    throw e;
+  }
+  if (!configured) {
+    try { encoder2.close(); } catch { /* already closed */ }
+    throw rejectEncoder ?? new Error('VideoEncoder: H.264 codec not supported in this browser.');
   }
 
   let timestampUs = 0;
